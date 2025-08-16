@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Видеосвязь один на один</title>
+    <style>
+        video { width: 45%; margin: 10px; }
+        body { font-family: Arial, sans-serif; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Видеосвязь один на один</h1>
+    <video id="localVideo" autoplay playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+    <br>
+    <button onclick="startCall()">Начать звонок</button>
+    <button onclick="hangUp()">Завершить звонок</button>
+
+    <script>
+        let pc;
+        let localStream;
+        const ws = new WebSocket(`wss://${window.location.host}/ws`);
+
+        ws.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'offer') {
+                await handleOffer(data);
+            } else if (data.type === 'answer') {
+                await handleAnswer(data);
+            } else if (data.type === 'candidate') {
+                await handleCandidate(data);
+            }
+        };
+
+        async function startCall() {
+            pc = new RTCPeerConnection();
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            pc.ontrack = (event) => {
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    ws.send(JSON.stringify({
+                        type: 'candidate',
+                        candidate: event.candidate
+                    }));
+                }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            ws.send(JSON.stringify({
+                type: 'offer',
+                sdp: offer.sdp
+            }));
+        }
+
+        async function handleOffer(data) {
+            pc = new RTCPeerConnection();
+            pc.ontrack = (event) => {
+                document.getElementById('remoteVideo').srcObject = event.streams[0];
+            };
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    ws.send(JSON.stringify({
+                        type: 'candidate',
+                        candidate: event.candidate
+                    }));
+                }
+            };
+
+            await pc.setRemoteDescription(new RTCSessionDescription(data));
+            localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            document.getElementById('localVideo').srcObject = localStream;
+            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            ws.send(JSON.stringify({
+                type: 'answer',
+                sdp: answer.sdp
+            }));
+        }
+
+        async function handleAnswer(data) {
+            await pc.setRemoteDescription(new RTCSessionDescription(data));
+        }
+
+        async function handleCandidate(data) {
+            if (pc) {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        }
+
+        function hangUp() {
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            document.getElementById('localVideo').srcObject = null;
+            document.getElementById('remoteVideo').srcObject = null;
+        }
+    </script>
+</body>
+</html>
