@@ -12,7 +12,7 @@ class VideoChat {
     }
 
     initWebSocket() {
-        this.socket = new WebSocket(`ws://webcalls-python.onrender.com/ws/${this.clientId}`);
+        this.socket = new WebSocket(`wss://webcalls-python.onrender.com/ws/${this.clientId}`);
 
         this.socket.onmessage = async (event) => {
             const message = JSON.parse(event.data);
