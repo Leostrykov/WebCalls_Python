@@ -1,0 +1,58 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Video Chat</title>
+    <style>
+        video {
+            width: 300px;
+            height: 200px;
+            background: #000;
+            margin: 10px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .videos {
+            display: flex;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Video Chat</h1>
+
+        <div>
+            <input type="text" id="targetId" placeholder="ID собеседника">
+            <button onclick="startCall()">Начать звонок</button>
+        </div>
+
+        <div>Ваш ID: <span id="myId"></span></div>
+
+        <div class="videos">
+            <div>
+                <h3>Вы</h3>
+                <video id="localVideo" autoplay muted></video>
+            </div>
+            <div>
+                <h3>Собеседник</h3>
+                <video id="remoteVideo" autoplay></video>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+    <script>
+        document.getElementById('myId').textContent = videoChat.clientId;
+
+        function startCall() {
+            const targetId = document.getElementById('targetId').value;
+            if (targetId) {
+                videoChat.startCall(targetId);
+            }
+        }
+    </script>
+</body>
+</html>
