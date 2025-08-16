@@ -2,7 +2,6 @@
 
 A simple web application for peer-to-peer video calling using WebRTC, FastAPI, and WebSocket.
 
-> [! info]
 > WebRTC (Web Real-Time Communication) is an open source technology that allows the transmission of audio, video, and data in real time through web browsers. This is not a separate program, but a set of protocols and APIs built into modern browsers.
 
 ## 🏗️ Architecture
