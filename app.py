@@ -1,44 +1,48 @@
-# app.py - FastAPI с WebSocket
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 import json
-import asyncio
+import logging
 import uvicorn
 
 app = FastAPI()
+
+# Статические файлы
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Хранилище активных соединений
+
+# Главная страница
+@app.get("/")
+async def get_index():
+    return FileResponse('static/templates/index.html')
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 connections = {}
-rooms = {}
-
-
-with open('./static/templates/index.html', encoding="utf-8") as file:
-    html = file.read()
 
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, client_id: str):
     await websocket.accept()
     connections[client_id] = websocket
+    logger.info(f"Клиент {client_id} подключен")
 
     try:
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-
-            # Обработка сигналов WebRTC
             await handle_signaling(message, client_id)
 
+    except WebSocketDisconnect:
+        logger.info(f"Клиент {client_id} отключился")
     except Exception as e:
+        logger.error(f"Ошибка для клиента {client_id}: {e}")
+    finally:
         if client_id in connections:
             del connections[client_id]
-
-
-@app.get("/")
-def index():
-    return HTMLResponse(html)
+            logger.info(f"Клиент {client_id} удален из списка подключений")
 
 
 async def handle_signaling(message, sender_id):
@@ -46,8 +50,15 @@ async def handle_signaling(message, sender_id):
     target_id = message.get("target")
 
     if target_id and target_id in connections:
-        message["sender"] = sender_id
-        await connections[target_id].send_text(json.dumps(message))
+        try:
+            message["sender"] = sender_id
+            await connections[target_id].send_text(json.dumps(message))
+        except Exception as e:
+            logger.error(f"Ошибка отправки сообщения от {sender_id} к {target_id}: {e}")
+            if target_id in connections:
+                del connections[target_id]
+    else:
+        logger.warning(f"Целевой клиент {target_id} не найден")
 
 if __name__ == "__main__":
     uvicorn.run(app, host='0.0.0.0', port=8000)

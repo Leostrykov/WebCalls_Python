@@ -18,11 +18,29 @@
         .videos {
             display: flex;
         }
+        #connectionStatus {
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .connected {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .disconnected {
+            background-color: #f44336;
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Video Chat</h1>
+        <div id="connectionStatus">Подключение...</div>
 
         <div>
             <input type="text" id="targetId" placeholder="ID собеседника">
@@ -46,6 +64,14 @@
     <script src="/static/js/app.js"></script>
     <script>
         document.getElementById('myId').textContent = videoChat.clientId;
+
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+                if (statusElement) {
+                    statusElement.textContent = status;
+                    statusElement.className = status.includes('подключен') ? 'connected' : 'disconnected';
+                }
+        }
 
         function startCall() {
             const targetId = document.getElementById('targetId').value;

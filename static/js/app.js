@@ -6,18 +6,58 @@ class VideoChat {
         this.socket = null;
         this.peerConnection = null;
         this.clientId = this.generateId();
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
 
         this.initWebSocket();
         this.setupPeerConnection();
     }
 
     initWebSocket() {
-        this.socket = new WebSocket(`wss://webcalls-python.onrender.com/ws/${this.clientId}`);
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/${this.clientId}`;
+
+        this.socket = new WebSocket(wsUrl);
+
+        this.socket.onopen = () => {
+            console.log('WebSocket подключен');
+            this.reconnectAttempts = 0;
+            this.updateConnectionStatus('WebSocket подключен');
+        };
 
         this.socket.onmessage = async (event) => {
             const message = JSON.parse(event.data);
             await this.handleSignaling(message);
         };
+
+        this.socket.onclose = (event) => {
+            console.log('WebSocket закрыт:', event.code, event.reason);
+            this.updateConnectionStatus('Соединение потеряно');
+            this.handleWebSocketClose();
+        };
+
+        this.socket.onerror = (error) => {
+            console.error('Ошибка WebSocket:', error);
+        };
+    }
+
+    handleWebSocketClose() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`Попытка переподключения ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            setTimeout(() => {
+                this.initWebSocket();
+            }, 1000 * this.reconnectAttempts); // Увеличиваем задержку
+        } else {
+            console.error('Максимальное количество попыток переподключения превышено');
+        }
+    }
+
+    reconnectWebSocket() {
+        if (this.socket) {
+            this.socket.close();
+        }
+        this.handleWebSocketClose();
     }
 
     setupPeerConnection() {
@@ -122,7 +162,20 @@ class VideoChat {
     }
 
     sendSignal(message) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
         this.socket.send(JSON.stringify(message));
+    } else {
+        console.log('WebSocket не подключен, переподключение...');
+        this.reconnectWebSocket();
+    }
+    }
+
+    updateConnectionStatus(status) {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+        statusElement.textContent = status;
+        statusElement.className = status.includes('подключен') ? 'connected' : 'disconnected';
+    }
     }
 
     generateId() {
